@@ -28,13 +28,19 @@ export function load(app: Application) {
 			domLocation: 'false',
 		} as versionsOptions,
 	});
+	app.options.addDeclaration({
+		help: 'Root package version',
+		name: 'rootPackageVersion',
+		type: ParameterType.String,
+	});
 
 	const vOptions = vUtils.getVersionsOptions(app) as versionsOptions;
 
 	vHooks.injectSelectJs(app);
 	vHooks.injectSelectHtml(app, vOptions.domLocation as validLocation);
 
-	const { rootPath, targetPath } = vUtils.getPaths(app);
+	const rootPackageVersion = vUtils.getRootPackageVersion(app);
+	const { rootPath, targetPath } = vUtils.getPaths(app, rootPackageVersion);
 
 	/**
 	 * This is the latest moment possible to inject the modified 'out' location
@@ -54,11 +60,13 @@ export function load(app: Application) {
 		vUtils.handleAssets(targetPath);
 		vUtils.handleJeckyll(rootPath, targetPath);
 
+		const rootPackageVersion = vUtils.getRootPackageVersion(app);
 		const metadata = vUtils.refreshMetadata(
 			vUtils.loadMetadata(rootPath),
 			rootPath,
 			vOptions.stable,
-			vOptions.dev
+			vOptions.dev,
+			rootPackageVersion
 		);
 
 		vUtils.makeAliasLink(

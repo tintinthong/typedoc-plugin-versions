@@ -9,8 +9,6 @@ import fs from 'fs-extra';
 import semver from 'semver';
 import { version, semanticAlias, versionsOptions, metadata } from '../types';
 import { Application, Logger, TypeDocReader } from 'typedoc';
-const packagePath = path.join(process.cwd(), 'package.json');
-const pack = fs.readJSONSync(packagePath);
 
 /**
  * Gets the docs metadata file path.
@@ -46,7 +44,8 @@ export function refreshMetadata(
 	metadata: metadata,
 	docRoot: string,
 	stable = 'auto',
-	dev = 'auto'
+	dev = 'auto',
+	rootPackageVersion: version
 ): metadata {
 	const validate = (v: string) => (v === 'auto' ? v : getSemanticVersion(v));
 	const vStable = validate(stable);
@@ -54,7 +53,8 @@ export function refreshMetadata(
 
 	const versions = refreshMetadataVersions(
 		[...(metadata.versions ?? []), metadata.stable, metadata.dev],
-		docRoot
+		docRoot,
+		rootPackageVersion
 	);
 
 	return {
@@ -70,7 +70,11 @@ export function refreshMetadata(
  * @param docRoot The path to the docs root.
  * @returns A distinct array of {@link version versions}, sorted in descending order.
  */
-export function refreshMetadataVersions(versions: version[], docRoot: string) {
+export function refreshMetadataVersions(
+	versions: version[],
+	docRoot: string,
+	rootPackageVersion: version
+) {
 	return (
 		[
 			// metadata versions
@@ -95,7 +99,7 @@ export function refreshMetadataVersions(versions: version[], docRoot: string) {
 			...getVersions(getPackageDirectories(docRoot)),
 
 			// package.json version
-			getSemanticVersion(),
+			rootPackageVersion ?? undefined,
 
 			// stable and dev symlinks
 			getSymlinkVersion('stable', docRoot),
@@ -206,11 +210,7 @@ export function getVersionAlias(
  * @param version
  * @returns The package version
  */
-export function getSemanticVersion(version: string = pack.version): version {
-	if (!version) {
-		throw new Error('Package version was not found');
-	}
-
+export function getSemanticVersion(version: string): version {
 	const semVer = semver.coerce(version, { loose: true });
 	if (!semVer) {
 		throw new Error(`version is not semantically formatted: ${version}`);
@@ -438,3 +438,27 @@ export const verRegex = /^(v\d+|\d+).\d+.\d+/;
  * regex for matching semantic minor version
  */
 export const minorVerRegex = /^(v\d+|\d+).\d+$/;
+
+export function getRootPackageOptions(app: Application) {
+	const packagePath = path.join(process.cwd(), 'package.json');
+	const pack = fs.readJSONSync(packagePath);
+	let version: string;
+	const rootPackageVersion = app.options.getValue(
+		'rootPackageVersion'
+	) as string;
+	if (rootPackageVersion) {
+		version = rootPackageVersion;
+	} else if (pack.version) {
+		version = pack.version;
+	} else {
+		throw new Error('Package version was not found');
+	}
+	return {
+		name: pack.name,
+		version: getSemanticVersion(version),
+	};
+}
+
+export function getRootPackageVersion(app: Application) {
+	return getRootPackageOptions(app).version;
+}
