@@ -43,3 +43,8 @@ export type metadata = {
 	stable?: version;
 	dev?: version;
 };
+
+export type rootPackageOptions = {
+	name: string;
+	version: version;
+};
